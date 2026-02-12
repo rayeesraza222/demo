@@ -1,10 +1,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello World"}
+# Mount static files at the root directory to serve index.html and assets directly
+app.mount("/", StaticFiles(directory="app/static", html=True), name="static")

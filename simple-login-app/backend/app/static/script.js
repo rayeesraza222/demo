@@ -1,17 +1,36 @@
-// DOM Elements for form switching
 const signUpButton = document.getElementById("signUp");
 const signInButton = document.getElementById("signIn");
 const container = document.getElementById("container");
 
-signUpButton.addEventListener("click", () => {
-  container.classList.add("right-panel-active");
-});
+if (signUpButton) {
+    signUpButton.addEventListener("click", () => {
+        container.classList.add("right-panel-active");
+    });
+}
 
-signInButton.addEventListener("click", () => {
-  container.classList.remove("right-panel-active");
-});
+if (signInButton) {
+    signInButton.addEventListener("click", () => {
+        container.classList.remove("right-panel-active");
+    });
+}
 
-// Three.js Background Animation
+// Mobile Event Listeners
+const mobileSignUpButton = document.getElementById("mobileSignUp");
+const mobileSignInButton = document.getElementById("mobileSignIn");
+
+if (mobileSignUpButton) {
+    mobileSignUpButton.addEventListener("click", () => {
+        container.classList.add("right-panel-active");
+    });
+}
+
+if (mobileSignInButton) {
+    mobileSignInButton.addEventListener("click", () => {
+        container.classList.remove("right-panel-active");
+    });
+}
+
+// Three.js Background Animation - Galaxy Spiral
 const canvasContainer = document.getElementById("canvas-container");
 
 // Scene, Camera, Renderer
@@ -20,104 +39,129 @@ const camera = new THREE.PerspectiveCamera(
   75,
   window.innerWidth / window.innerHeight,
   0.1,
-  1000,
+  100,
 );
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
+canvasContainer.innerHTML = ""; // Clear any existing canvas
 canvasContainer.appendChild(renderer.domElement);
 
-// Particles
-const particlesGeometry = new THREE.BufferGeometry();
-const particlesCount = 2000; // Number of particles
+// Galaxy Parameters
+const parameters = {
+    count: 5000,
+    size: 0.01,
+    radius: 5,
+    branches: 3,
+    spin: 1,
+    randomness: 0.2,
+    randomnessPower: 3,
+    insideColor: '#ff6030',
+    outsideColor: '#1b3984'
+};
 
-const posArray = new Float32Array(particlesCount * 3); // 3 values per vertex (x, y, z)
 
-for (let i = 0; i < particlesCount * 3; i++) {
-  // Random positions
-  posArray[i] = (Math.random() - 0.5) * 15; // Spread particles
-}
+let geometry = null;
+let material = null;
+let points = null;
 
-particlesGeometry.setAttribute(
-  "position",
-  new THREE.BufferAttribute(posArray, 3),
-);
+const generateGalaxy = () => {
+    // Destroy old galaxy if exists
+    if(points !== null) {
+        geometry.dispose();
+        material.dispose();
+        scene.remove(points);
+    }
 
-// Material
-const particlesMaterial = new THREE.PointsMaterial({
-  size: 0.02,
-  color: 0xff4b2b, // Primary color
-  transparent: true,
-  opacity: 0.8,
-  blending: THREE.AdditiveBlending, // Glow effect
-});
+    geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(parameters.count * 3);
+    const colors = new Float32Array(parameters.count * 3);
 
-// Mesh
-const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-scene.add(particlesMesh);
+    const colorInside = new THREE.Color(parameters.insideColor);
+    const colorOutside = new THREE.Color(parameters.outsideColor);
 
-// Connecting Lines (Optional - can be performance heavy, so let's stick to particles for smooth exp on all devices or adding a separate mesh)
-// Let's add a wireframe sphere for depth
-const sphereGeometry = new THREE.IcosahedronGeometry(10, 1);
-const sphereMaterial = new THREE.MeshBasicMaterial({
-  color: 0xff416c,
-  wireframe: true,
-  transparent: true,
-  opacity: 0.2,
-});
-const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-scene.add(sphere);
+    for(let i = 0; i < parameters.count; i++) {
+        const i3 = i * 3;
 
-// Lighting (Not strictly needed for BasicMaterial/Points, but good practice)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
+        // Position
+        const radius = Math.random() * parameters.radius;
+        const spinAngle = radius * parameters.spin;
+        const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
+        
+        const randomX = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1);
+        const randomY = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1);
+        const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1);
 
-camera.position.z = 5;
+        positions[i3    ] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+        positions[i3 + 1] = randomY;
+        positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
 
-// Mouse Interactivity
+        // Color
+        const mixedColor = colorInside.clone();
+        mixedColor.lerp(colorOutside, radius / parameters.radius);
+
+        colors[i3    ] = mixedColor.r;
+        colors[i3 + 1] = mixedColor.g;
+        colors[i3 + 2] = mixedColor.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    material = new THREE.PointsMaterial({
+        size: parameters.size,
+        sizeAttenuation: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        vertexColors: true
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+};
+
+generateGalaxy();
+
+// Mouse Interaction
 let mouseX = 0;
 let mouseY = 0;
 
 document.addEventListener("mousemove", (event) => {
-  mouseX = event.clientX;
-  mouseY = event.clientY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 });
 
 // Animation Loop
 const clock = new THREE.Clock();
 
 function animate() {
-  const elapsedTime = clock.getElapsedTime();
+    const elapsedTime = clock.getElapsedTime();
 
-  // Rotate the entire particle system slowly
-  particlesMesh.rotation.y = elapsedTime * 0.05;
-  particlesMesh.rotation.x = elapsedTime * 0.02;
+    // Rotate Galaxy
+    if (points) {
+        points.rotation.y = elapsedTime * 0.05;
+        
+        // Slight tilt based on mouse
+        points.rotation.x = mouseY * 0.0001;
+        points.rotation.z = mouseX * 0.0001;
+    }
 
-  sphere.rotation.x = elapsedTime * 0.1;
-  sphere.rotation.y = elapsedTime * 0.1;
+    camera.position.x = Math.cos(elapsedTime * 0.1) * 6;
+    camera.position.z = Math.sin(elapsedTime * 0.1) * 6;
+    camera.position.y = Math.sin(elapsedTime * 0.05) * 2;
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-  // Mouse Interaction Parallax
-  // Subtle movement based on mouse position
-  particlesMesh.rotation.y += mouseX * 0.00005;
-  particlesMesh.rotation.x += mouseY * 0.00005;
-
-  camera.position.x += (mouseX * 0.001 - camera.position.x) * 0.05;
-  camera.position.y += (-mouseY * 0.001 - camera.position.y) * 0.05;
-
-  // Wave effect for particles (advanced)
-  // We can access positions and modify them if we want a wave, but let's keep it simple and performant first.
-
-  renderer.render(scene, camera);
-  requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
 }
 
 animate();
 
 // Handle Resize
 window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
